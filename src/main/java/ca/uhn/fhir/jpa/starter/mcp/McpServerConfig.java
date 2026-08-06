@@ -79,3 +79,4 @@ public class McpServerConfig {
 		return new ServletRegistrationBean<>(transportProvider, properties.getMcpEndpoint(), SSE_ENDPOINT);
 	}
 }
+

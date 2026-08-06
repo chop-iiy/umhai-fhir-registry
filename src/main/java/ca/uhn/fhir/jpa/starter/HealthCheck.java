@@ -1,3 +1,5 @@
+package ca.uhn.fhir.jpa.starter;
+
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -79,3 +81,4 @@ public final class HealthCheck {
 		return p.endsWith("/") ? p.substring(0, p.length() - 1) : p;
 	}
 }
+

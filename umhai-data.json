@@ -1,0 +1,151 @@
+{
+  "instances" : [ {
+    "appVersion" : "2.4.0",
+    "registeredBy" : "0:0:0:0:0:0:0:1",
+    "registeredAt" : 1785946545060,
+    "previousInstanceUuid" : null,
+    "buildNumber" : "1056",
+    "platform" : "ios",
+    "lastUpdated" : 1785946545061,
+    "firstLaunch" : true,
+    "appId" : "com.healthcare.provider",
+    "instanceUuid" : "c971d1f3-13c7-57d1-89cb-cf00a98f5252",
+    "hardwareSerial" : "INVALID",
+    "model" : "iPhone 15 Pro",
+    "status" : "Active"
+  }, {
+    "appVersion" : "2.4.1",
+    "registeredBy" : "0:0:0:0:0:0:0:1",
+    "registeredAt" : 1785961950141,
+    "previousInstanceUuid" : null,
+    "buildNumber" : "1057",
+    "platform" : "windows",
+    "lastUpdated" : 1785961950141,
+    "firstLaunch" : true,
+    "appId" : "com.healthcare.provider.win",
+    "instanceUuid" : "3f6c9c6e-23d6-5101-bf31-a4d1355a4eb7",
+    "hardwareSerial" : "SN96-26XM-05",
+    "model" : "Dell XPS 15",
+    "status" : "Active"
+  }, {
+    "appVersion" : "2.4.0",
+    "registeredBy" : "127.0.0.1",
+    "registeredAt" : 1785943978262,
+    "previousInstanceUuid" : null,
+    "buildNumber" : "1056",
+    "platform" : "ios",
+    "lastUpdated" : 1785943978262,
+    "firstLaunch" : true,
+    "appId" : "com.healthcare.provider",
+    "instanceUuid" : "1893aa90-7ee1-5a3b-8a1d-6160304ebae1",
+    "hardwareSerial" : "SN99-23XJ-02",
+    "model" : "iPhone 15 Pro",
+    "status" : "Active"
+  }, {
+    "appVersion" : "2.4.0",
+    "registeredBy" : "0:0:0:0:0:0:0:1",
+    "registeredAt" : 1785775531909,
+    "previousInstanceUuid" : null,
+    "buildNumber" : "1056",
+    "platform" : "ios",
+    "lastUpdated" : 1785775671304,
+    "firstLaunch" : true,
+    "appId" : "com.healthcare.provider",
+    "instanceUuid" : "4d1c991b-c9ed-5a6e-a072-bec96a34967f",
+    "hardwareSerial" : "SN99-23XJ-01",
+    "model" : "iPhone 15 Pro",
+    "status" : "Decommissioned"
+  }, {
+    "appVersion" : "2.4.0",
+    "registeredBy" : "0:0:0:0:0:0:0:1",
+    "registeredAt" : 1785961776830,
+    "previousInstanceUuid" : null,
+    "buildNumber" : "1056",
+    "platform" : "windows",
+    "lastUpdated" : 1785961776830,
+    "firstLaunch" : true,
+    "appId" : "com.healthcare.provider.win",
+    "instanceUuid" : "a6bca3f4-3064-5ac5-af15-1ceb01e3f7f0",
+    "hardwareSerial" : "SN96-26XM-04",
+    "model" : "Dell XPS 15",
+    "status" : "Active"
+  }, {
+    "appVersion" : "2.5.0",
+    "registeredBy" : "system-transfer",
+    "registeredAt" : 1785775671304,
+    "previousInstanceUuid" : "4d1c991b-c9ed-5a6e-a072-bec96a34967f",
+    "buildNumber" : "1100",
+    "platform" : "ios",
+    "lastUpdated" : 1785775671304,
+    "firstLaunch" : true,
+    "appId" : "com.healthcare.provider",
+    "instanceUuid" : "9b8560a2-80b4-53dc-b974-768854690bcf",
+    "hardwareSerial" : "SN99-23XJ-01",
+    "model" : "iPhone 16 Pro",
+    "status" : "Active"
+  }, {
+    "appVersion" : "2.4.0",
+    "registeredBy" : "0:0:0:0:0:0:0:1",
+    "registeredAt" : 1785961646588,
+    "previousInstanceUuid" : null,
+    "buildNumber" : "1056",
+    "platform" : "ios",
+    "lastUpdated" : 1785961646588,
+    "firstLaunch" : true,
+    "appId" : "com.healthcare.provider",
+    "instanceUuid" : "49941947-b4a0-5aee-91bf-169585f33cfc",
+    "hardwareSerial" : "SN99-23XJ-03",
+    "model" : "iPhone 15 Pro",
+    "status" : "Active"
+  } ],
+  "history" : [ {
+    "eventId" : "db0a3ccb-e55c-4773-929d-ab23f277f308",
+    "instanceUuid" : "4d1c991b-c9ed-5a6e-a072-bec96a34967f",
+    "description" : "New instance registered",
+    "eventType" : "INSTALL",
+    "timestamp" : 1785775531910
+  }, {
+    "eventId" : "b98f03ea-7978-4ae6-a7cc-907bbed99cc8",
+    "instanceUuid" : "4d1c991b-c9ed-5a6e-a072-bec96a34967f",
+    "description" : "Hardware transferred",
+    "eventType" : "DECOMMISSIONED",
+    "timestamp" : 1785775671304
+  }, {
+    "eventId" : "ec450d39-2b7c-48cc-99b7-f157c2a59890",
+    "instanceUuid" : "9b8560a2-80b4-53dc-b974-768854690bcf",
+    "description" : "New instance after transfer",
+    "eventType" : "TRANSFER",
+    "timestamp" : 1785775671304
+  }, {
+    "eventId" : "278d0fdf-8d40-4bfe-9f05-486d046c8346",
+    "instanceUuid" : "1893aa90-7ee1-5a3b-8a1d-6160304ebae1",
+    "description" : "New instance registered",
+    "eventType" : "INSTALL",
+    "timestamp" : 1785943978262
+  }, {
+    "eventId" : "ae8d5b09-2f44-4116-a2de-681725fc48b6",
+    "instanceUuid" : "c971d1f3-13c7-57d1-89cb-cf00a98f5252",
+    "description" : "New instance registered",
+    "eventType" : "INSTALL",
+    "timestamp" : 1785946545061
+  }, {
+    "eventId" : "dd764bd5-a8d6-4e92-9d79-0faa6dc97dec",
+    "instanceUuid" : "49941947-b4a0-5aee-91bf-169585f33cfc",
+    "description" : "New instance registered",
+    "eventType" : "INSTALL",
+    "timestamp" : 1785961646588
+  }, {
+    "eventId" : "d0c43d19-aa8a-4c68-b204-a1d05f37292a",
+    "instanceUuid" : "a6bca3f4-3064-5ac5-af15-1ceb01e3f7f0",
+    "description" : "New instance registered",
+    "eventType" : "INSTALL",
+    "timestamp" : 1785961776830
+  }, {
+    "eventId" : "6d3e4c35-6b1b-418e-9589-6bcbd180cd2a",
+    "instanceUuid" : "3f6c9c6e-23d6-5101-bf31-a4d1355a4eb7",
+    "description" : "New instance registered",
+    "eventType" : "INSTALL",
+    "timestamp" : 1785961950141
+  } ],
+  "lastSaved" : 1785962427857
+}

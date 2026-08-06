@@ -107,7 +107,8 @@ spring:
 
   datasource:
     # url: "jdbc:h2:file:./target/database/h2"
-    url: jdbc:h2:mem:test_mem
+
+    url: jdbc:h2:mem:test_mem;DB_CLOSE_DELAY=-1
     username: sa
     password: null
     driver-class-name: org.h2.Driver
@@ -176,7 +177,10 @@ spring:
 # -------------------------------------------------------------------------------------
 hapi:
   fhir:
-
+    # Disable validation so the server accepts the sample resources as-is
+    repository_validation_enabled: false
+    # Tell the server to download and inject its own test data on boot
+    pre_load_fhir_test_data: "true"
     # -------------------------------------------------------------------------------
     # A. Core Server & API
     # -------------------------------------------------------------------------------
@@ -501,16 +505,17 @@ hapi:
     # -------------------------------------------------------------------------------
     # lastn_enabled: true
     
-    # -------------------------------------------------------------------------------
-    # S. Testers (webui)
-    # -------------------------------------------------------------------------------
-    tester:
-      home:
-        name: Local Tester
-        server_address: 'http://localhost:8080/fhir'
-        refuse_to_fetch_third_party_urls: false
-        fhir_version: R4
-
+# ------------------------------------------------------------------------------- 
+# S. Testers (webui) 
+# ------------------------------------------------------------------------------- 
+tester:
+  home:
+    name: Local Tester
+    server_address: 'http://localhost:8080/fhir'
+    refuse_to_fetch_third_party_urls: false
+    fhir_version: R4
+    import_test_data_on_startup: true
+    
     # -------------------------------------------------------------------------------
     # T. Outbound HTTP client (RestfulClientFactory)
     # -------------------------------------------------------------------------------
@@ -531,3 +536,7 @@ hapi:
     #   connection_ttl: 5000              # ms — time-to-live for pooled persistent connections
     #   pool_max_total: 20                # total connections across all routes
     #   pool_max_per_route: 20            # connections per target host
+
+logging:
+  level:
+    org.apache.catalina.filters.RequestDumperFilter: DEBUG
