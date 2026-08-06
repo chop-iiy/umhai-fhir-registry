@@ -1,0 +1,921 @@
+{
+  "info": {
+    "_postman_id": "7723559d-729e-4b64-8517-5ad84e0f5b48",
+    "name": "UMHAI Registry API",
+    "description": "Application Instance ID (UMHAI) Central Registry - Complete API Collection with Validation",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "4371701"
+  },
+  "item": [
+    {
+      "name": "Health & Status",
+      "item": [
+        {
+          "name": "Health Check",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Service is UP', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('UP');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "health"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Statistics",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Returns statistics', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.totalInstances).to.be.a('number');",
+                  "    pm.expect(jsonData.totalActiveInstances).to.be.a('number');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/stats",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "stats"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Validation Rules",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Returns validation rules', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.hardwareSerialPattern).to.be.a('string');",
+                  "    pm.expect(jsonData.appIdPattern).to.be.a('string');",
+                  "    pm.expect(jsonData.validPlatforms).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/validation-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "validation-rules"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Registration",
+      "item": [
+        {
+          "name": "Register iOS Instance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Instance registered successfully', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.instanceUuid).to.not.be.empty;",
+                  "    pm.environment.set('instanceUuid', jsonData.instanceUuid);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:55:00Z\",\n    \"request_id\": \"REQ-778899\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN99-23XJ-01\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.4.0\",\n      \"build_number\": \"1056\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register Android Instance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Android instance registered', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:56:00Z\",\n    \"request_id\": \"REQ-778900\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN98-24XK-02\",\n      \"platform\": \"android\",\n      \"model\": \"Galaxy S24\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.4.0\",\n      \"build_number\": \"1056\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register Web Instance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Web instance registered', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:57:00Z\",\n    \"request_id\": \"REQ-778901\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN97-25XL-03\",\n      \"platform\": \"web\",\n      \"model\": \"Chrome Browser\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider.web\",\n      \"version\": \"2.4.0\",\n      \"build_number\": \"1056\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Register Windows Instance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Windows instance registered', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:58:00Z\",\n    \"request_id\": \"REQ-778902\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN96-26XM-04\",\n      \"platform\": \"windows\",\n      \"model\": \"Dell XPS 15\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider.win\",\n      \"version\": \"2.4.0\",\n      \"build_number\": \"1056\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Query",
+      "item": [
+        {
+          "name": "Get All Instances",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Returns instances list', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.instances).to.be.an('array');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/instances",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "instances"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Validate Instance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Instance validation result', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.valid).to.be.a('boolean');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/validate/{{instanceUuid}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "validate",
+                "{{instanceUuid}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Instance Details",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Returns instance details', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.instanceUuid).to.eql(pm.variables.get('instanceUuid'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/instance/{{instanceUuid}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "instance",
+                "{{instanceUuid}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Updates",
+      "item": [
+        {
+          "name": "Update Instance (Reinstall)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Instance updated', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.instanceUuid).to.eql(pm.variables.get('instanceUuid'));",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T21:00:00Z\",\n    \"request_id\": \"REQ-778903\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN99-23XJ-01\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"1100\"\n    },\n    \"context\": {\n      \"is_first_launch\": false\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Hardware Transfer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Hardware transfer completed', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "    pm.expect(jsonData.newInstanceUuid).to.not.be.empty;",
+                  "    pm.environment.set('instanceUuid', jsonData.newInstanceUuid);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN99-23XJ-01\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 16 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"1100\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/transfer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "transfer"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Delete",
+      "item": [
+        {
+          "name": "Delete Instance",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Instance deleted', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('success');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/instance/{{instanceUuid}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "instance",
+                "{{instanceUuid}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Validation Tests (Should Fail)",
+      "item": [
+        {
+          "name": "Invalid Hardware Serial",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:55:00Z\",\n    \"request_id\": \"REQ-778899\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"INVALID\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.4.0\",\n      \"build_number\": \"1056\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid App ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:55:00Z\",\n    \"request_id\": \"REQ-778899\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN99-23XJ-01\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"invalid-app-id\",\n      \"version\": \"2.4.0\",\n      \"build_number\": \"1056\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Platform",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:55:00Z\",\n    \"request_id\": \"REQ-778899\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN99-23XJ-01\",\n      \"platform\": \"tizen\",\n      \"model\": \"Samsung TV\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.4.0\",\n      \"build_number\": \"1056\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Semantic Version",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:55:00Z\",\n    \"request_id\": \"REQ-778899\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN99-23XJ-01\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.4\",\n      \"build_number\": \"1056\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Build Number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:55:00Z\",\n    \"request_id\": \"REQ-778899\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN99-23XJ-01\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.4.0\",\n      \"build_number\": \"ABC123\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Missing Required Fields",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:55:00Z\",\n    \"request_id\": \"REQ-778899\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN99-23XJ-01\",\n      \"platform\": \"ios\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Bulk Operations",
+      "item": [
+        {
+          "name": "Register Multiple Instances (Sequential)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// This is a collection of requests, run them sequentially",
+                  "// Each registration creates a new instance with different hardware"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T21:00:00Z\",\n    \"request_id\": \"REQ-BULK-001\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN-BULK-001\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.bulk\",\n      \"version\": \"1.0.0\",\n      \"build_number\": \"1001\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Pre-request script to set up variables if needed"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Collection level tests"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "instanceUuid",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}
