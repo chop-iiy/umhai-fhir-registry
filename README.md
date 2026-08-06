@@ -686,3 +686,129 @@ You can configure the agent using environment variables or Java system propertie
 ## Enable MCP
 
 MCP capabilities can be enabled by setting the `spring.ai.mcp.server.enabled` to `true`. This will enable the MCP server and expose the MCP endpoints. The MCP endpoint is currently hardcoded to `/mcp/message` and can be tried out by running e.g. `npx @modelcontextprotocol/inspector` and connect to http://localhost:8080/mcp/message using Streamable HTTP. Spring AI MCP Server Auto Configuration is currently not supported.
+
+
+# UMHAI Central Registry (HAPI FHIR JPA Server Starter Implementation)
+
+The **Unique Mobile/Medical Hardware Application Instance (UMHAI)** Central Registry functions as an identity and profile management node built on top of the HAPI FHIR JPA Server Starter framework (v8.10.0, Java 17). It generates, tracks, manages, and audits device and application deployments natively inside clinical messaging workflows.
+
+The system uses deterministic **RFC 4122 UUID v5 namespace hashing** to map unique medical app installation profiles, backing transactions with an underlying database persistence layer via Hibernate/Spring Data JPA.
+
+---
+
+## 🛠️ Architecture & Package Breakdown
+
+```text
+src/main/java/ca/uhn/fhir/jpa/starter/
+├── Application.java (Modified: Registers custom resource metadata loops)
+├── config/
+│   └── UmhaiConfig.java (Spring infrastructure configuration mapping beans)
+├── custom/
+│   └── UmhaiInstance.java (Custom FHIR Extension Resource extending DomainResource)
+├── entity/
+│   └── UmhaiInstanceEntity.java (JPA DB persistence table model mapping)
+├── mapper/
+│   └── UmhaiMapper.java (Entity-to-model state conversions)
+├── provider/
+│   └── UmhaiInstanceResourceProvider.java (Plain provider hook adding resource to CapabilityStatement)
+├── repository/
+│   └── UmhaiInstanceRepository.java (Spring Data JPA SQL evaluation queries)
+├── rest/
+│   ├── UmhaiRegistrationEndpoint.java (Spring MVC HTTP Rest Endpoints Controller)
+│   └── UmhaiLoggingFilter.java (OncePerRequestFilter interceptor logging outbound JSON bodies)
+└── service/
+    └── UmhaiRegistrationService.java (Core business constraint orchestration validation engine)
+```
+
+---
+
+## 📡 API Request & Response Specification
+
+The registry exposes a dedicated REST controller layer mapped to the base routing prefix path `/api/umhai/*`.
+
+### 1. Health & Readiness Diagnostics
+Verify server context mapping loops synchronously.
+
+*   **URL:** `GET /api/umhai/health`
+*   **Response (`200 OK`):**
+    ```json
+    {
+      "status": "UP",
+      "timestamp": 1785951968000,
+      "service": "UMHAI Central Registry"
+    }
+    ```
+
+### 2. Application Profile Registration
+Registers or looks up an active instance identity block profile.
+
+*   **URL:** `POST /api/umhai/register`
+*   **Payload Example:**
+    ```json
+    {
+      "header": {
+        "timestamp": "2026-08-02T20:55:00Z",
+        "request_id": "REQ-778899"
+      },
+      "payload": {
+        "hardware": {
+          "serial_number": "SN99-23XJ-01",
+          "platform": "ios",
+          "model": "iPhone 15 Pro"
+        },
+        "application": {
+          "app_id": "com.healthcare.provider",
+          "version": "2.4.0",
+          "build_number": "1056"
+        },
+        "context": {
+          "is_first_launch": true
+        }
+      }
+    }
+    ```
+*   **Success Response (`200 OK`):**
+    ```json
+    {
+      "status": "success",
+      "instanceUuid": "4d1c991b-c9ed-5a6e-a072-bec96a34967f",
+      "hardwareSerial": "SN99-23XJ-01",
+      "appId": "com.healthcare.provider",
+      "status": "Active",
+      "registeredAt": "2026-08-02T20:55:00Z",
+      "message": "Application Instance ID registered successfully"
+    }
+    ```
+
+---
+
+## 🔒 Implemented Business Validation Constraints
+
+The `UmhaiRegistrationService` layer enforces strict regex requirements on processing payloads:
+
+*   **Hardware Serial:** Enforces bounded alphanumeric dashes: `^[A-Z0-9]{2,}(-[A-Z0-9]{2,}){0,3}$`
+*   **Application Identifiers:** Enforces proper reverse domain notation names: `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$`
+*   **Platform Support:** Restricted to `ios`, `android`, `web`, `windows`, `macos`, `linux`, `other`.
+
+---
+
+## 📑 HAPI FHIR CapabilityStatement Conformance Integration
+
+The registry injects `UmhaiInstance` directly into the core FHIR standard infrastructure metadata endpoint template.
+
+By binding `UmhaiInstanceResourceProvider` inside the `Application` servlet registry pipeline, sending an unauthenticated metadata query:
+```http
+GET http://localhost:8080/fhir/metadata?_format=json
+```
+returns an official `CapabilityStatement` payload block documenting the custom resource profiles:
+
+```json
+{
+  "type": "UmhaiInstance",
+  "profile": "http://your-org/fhir/StructureDefinition/umhai-instance",
+  "interaction": [
+    { "code": "read" },
+    { "code": "search-type" }
+  ]
+}
+```
