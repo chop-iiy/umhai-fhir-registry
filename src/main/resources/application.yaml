@@ -49,6 +49,13 @@ spring:
   # -------------------------------------------------------------------------------
   application:
     name: "@project.artifactId@"
+  
+    h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: false
 
   # -------------------------------------------------------------------------------
   # A. Spring AI — Model Context Protocol (MCP)

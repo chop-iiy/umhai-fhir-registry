@@ -4,19 +4,18 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ca.uhn.fhir.jpa.starter.custom.UmhaiInstance;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
+import ca.uhn.fhir.jpa.starter.entity.UmhaiInstanceEntity;
+import ca.uhn.fhir.jpa.starter.entity.UmhaiHistoryEntity;
+import ca.uhn.fhir.jpa.starter.mapper.UmhaiMapper;
+import ca.uhn.fhir.jpa.starter.repository.UmhaiInstanceRepository;
+import ca.uhn.fhir.jpa.starter.repository.UmhaiHistoryRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 @Service
@@ -24,25 +23,24 @@ public class UmhaiRegistrationService {
     private static final Logger ourLog = LoggerFactory.getLogger(UmhaiRegistrationService.class);
 
     private static final String NAMESPACE_DNS = "6ba7b810-9dad-11d1-80b4-00c04fd430c8";
-    private static final String DATA_FILE = "umhai-data.json";
 
     private static final Pattern UUID_PATTERN = Pattern.compile(
         "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
         Pattern.CASE_INSENSITIVE
     );
-    
+
     private static final Pattern HARDWARE_SERIAL_PATTERN = Pattern.compile(
         "^[A-Z0-9]{2,}(-[A-Z0-9]{2,}){0,3}$"
     );
-    
+
     private static final Pattern APP_ID_PATTERN = Pattern.compile(
         "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$"
     );
-    
+
     private static final Pattern SEMANTIC_VERSION_PATTERN = Pattern.compile(
         "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
     );
-    
+
     private static final Pattern BUILD_NUMBER_PATTERN = Pattern.compile(
         "^[0-9]{1,10}$"
     );
@@ -55,22 +53,32 @@ public class UmhaiRegistrationService {
         "Active", "Pending", "Decommissioned", "Transferred", "Suspended"
     ));
 
-    private final Map<String, UmhaiInstance> instanceStore = new ConcurrentHashMap<>();
-    private final List<Map<String, Object>> historyLog = new ArrayList<>();
-    private final ObjectMapper objectMapper;
+    private final UmhaiInstanceRepository instanceRepository;
+    private final UmhaiHistoryRepository historyRepository;
+    private final UmhaiMapper mapper;
     private final List<String> validationErrors = new ArrayList<>();
 
-    public UmhaiRegistrationService() {
-        this.objectMapper = new ObjectMapper().enable(SerializationFeature.INDENT_OUTPUT);
-        loadData();
+    public UmhaiRegistrationService(UmhaiInstanceRepository instanceRepository,
+                                     UmhaiHistoryRepository historyRepository,
+                                     UmhaiMapper mapper) {
+        this.instanceRepository = instanceRepository;
+        this.historyRepository = historyRepository;
+        this.mapper = mapper;
     }
 
-    public String generateUuidV5(String hardwareSerial, String appId) {
+    /**
+     * Instance identity is derived from hardware serial + app ID + app version + build number.
+     * Any change to app version or build number must produce a different UUID — this is how
+     * "issue a new UMHAI ID when the running app version/build changes" is implemented.
+     */
+    public String generateUuidV5(String hardwareSerial, String appId, String appVersion, String buildNumber) {
         try {
-            String input = NAMESPACE_DNS + ":" + hardwareSerial + ":" + appId;
+            String input = NAMESPACE_DNS + ":" + hardwareSerial + ":" + appId
+                + ":" + (appVersion != null ? appVersion : "")
+                + ":" + (buildNumber != null ? buildNumber : "");
             MessageDigest md = MessageDigest.getInstance("SHA-1");
             byte[] hash = md.digest(input.getBytes(StandardCharsets.UTF_8));
-            
+
             long msb = 0;
             long lsb = 0;
             for (int i = 0; i < 8; i++) {
@@ -79,13 +87,13 @@ public class UmhaiRegistrationService {
             for (int i = 8; i < 16; i++) {
                 lsb = (lsb << 8) | (hash[i] & 0xff);
             }
-            
+
             msb &= 0xffffffffffff0fffL;
             msb |= 0x0000000000005000L;
-            
+
             lsb &= 0x3fffffffffffffffL;
             lsb |= 0x8000000000000000L;
-            
+
             return String.format("%08x-%04x-%04x-%04x-%012x",
                 (msb >> 32) & 0xffffffffL,
                 (msb >> 16) & 0xffffL,
@@ -103,20 +111,16 @@ public class UmhaiRegistrationService {
             addValidationError("hardwareSerial is required");
             return false;
         }
-        
+
         if (!HARDWARE_SERIAL_PATTERN.matcher(serial).matches()) {
             addValidationError("hardwareSerial must be alphanumeric with optional dashes");
             return false;
         }
-        
-        for (UmhaiInstance instance : instanceStore.values()) {
-            if (instance.isActive() && 
-                instance.getHardwareSerial().getValue().equals(serial)) {
-                addValidationError("hardwareSerial '" + serial + "' is already registered and active");
-                return false;
-            }
-        }
-        
+
+        // Note: whether this hardware serial already has an active registration is no longer
+        // a validation error here. registerInstance() looks that up itself and decides whether
+        // to treat the request as "no change", "version/build update" (issue new UMHAI ID), or
+        // "brand new registration" — see registerInstance() for the actual business rule.
         return true;
     }
 
@@ -125,12 +129,12 @@ public class UmhaiRegistrationService {
             addValidationError("platform is required");
             return false;
         }
-        
+
         if (!VALID_PLATFORMS.contains(platform.toLowerCase())) {
             addValidationError("platform must be one of: " + String.join(", ", VALID_PLATFORMS));
             return false;
         }
-        
+
         return true;
     }
 
@@ -139,17 +143,17 @@ public class UmhaiRegistrationService {
             addValidationError("appId is required");
             return false;
         }
-        
+
         if (!APP_ID_PATTERN.matcher(appId).matches()) {
             addValidationError("appId must be in reverse domain notation (e.g., com.healthcare.provider)");
             return false;
         }
-        
+
         if (appId.length() > 100) {
             addValidationError("appId must not exceed 100 characters");
             return false;
         }
-        
+
         return true;
     }
 
@@ -158,12 +162,12 @@ public class UmhaiRegistrationService {
             addValidationError("appVersion is required");
             return false;
         }
-        
+
         if (!SEMANTIC_VERSION_PATTERN.matcher(version).matches()) {
             addValidationError("appVersion must follow semantic versioning (e.g., 2.4.0, 1.0.0-alpha.1)");
             return false;
         }
-        
+
         return true;
     }
 
@@ -171,12 +175,12 @@ public class UmhaiRegistrationService {
         if (buildNumber == null || buildNumber.isEmpty()) {
             return true;
         }
-        
+
         if (!BUILD_NUMBER_PATTERN.matcher(buildNumber).matches()) {
             addValidationError("buildNumber must be numeric (e.g., 1056)");
             return false;
         }
-        
+
         return true;
     }
 
@@ -185,12 +189,12 @@ public class UmhaiRegistrationService {
             addValidationError("status is required");
             return false;
         }
-        
+
         if (!VALID_STATUSES.contains(status)) {
             addValidationError("status must be one of: " + String.join(", ", VALID_STATUSES));
             return false;
         }
-        
+
         return true;
     }
 
@@ -199,12 +203,12 @@ public class UmhaiRegistrationService {
             addValidationError("instanceUuid is required");
             return false;
         }
-        
+
         if (!UUID_PATTERN.matcher(uuid).matches()) {
             addValidationError("instanceUuid must be a valid UUID format");
             return false;
         }
-        
+
         return true;
     }
 
@@ -224,6 +228,7 @@ public class UmhaiRegistrationService {
         validationErrors.clear();
     }
 
+    @Transactional
     public synchronized UmhaiInstance registerInstance(Map<String, Object> registrationData) {
         clearValidationErrors();
         String hardwareSerial = (String) registrationData.get("hardwareSerial");
@@ -243,65 +248,116 @@ public class UmhaiRegistrationService {
         isValid &= validateAppVersion(appVersion);
         isValid &= validateBuildNumber(buildNumber);
         isValid &= validateStatus("Active");
-        
+
         if (!isValid) {
             throw new IllegalArgumentException("Validation failed: " + String.join("; ", validationErrors));
         }
 
-        String instanceUuid = generateUuidV5(hardwareSerial, appId);
-        UmhaiInstance existingInstance = instanceStore.get(instanceUuid);
-        
-        if (existingInstance != null && existingInstance.isActive()) {
-            ourLog.info("[UMHAI SERVICE] Match found. Tracking existing active registration instance: {}", instanceUuid);
-            existingInstance.setAppVersion(appVersion);
-            if (buildNumber != null) {
-                existingInstance.setBuildNumber(buildNumber);
-            }
-            existingInstance.setLastUpdated(new Date());
-            existingInstance.setStatus("Active");
-            logHistory(instanceUuid, "UPDATE", new Date(), "Instance updated");
-            saveData();
-            return existingInstance;
-        } else {
-            ourLog.info("[UMHAI SERVICE] No match found. Registering a brand new instance context: {}", instanceUuid);
-            UmhaiInstance newInstance = new UmhaiInstance();
-            newInstance.setInstanceUuid(instanceUuid);
-            newInstance.setHardwareSerial(hardwareSerial);
-            newInstance.setPlatform(platform);
-            if (model != null) {
-                newInstance.setModel(model);
-            }
-            newInstance.setAppId(appId);
-            newInstance.setAppVersion(appVersion);
-            if (buildNumber != null) {
-                newInstance.setBuildNumber(buildNumber);
-            }
-            newInstance.setStatus("Active");
-            newInstance.setFirstLaunch(isFirstLaunch);
-            newInstance.setRegisteredAt(new Date());
-            newInstance.setLastUpdated(new Date());
-            newInstance.setRegisteredBy(registeredBy);
+        String instanceUuid = generateUuidV5(hardwareSerial, appId, appVersion, buildNumber);
 
-            instanceStore.put(instanceUuid, newInstance);
-            logHistory(instanceUuid, "INSTALL", new Date(), "New instance registered");
-            saveData();
-            return newInstance;
+        // Is there already an active instance for this hardware+app, at ANY version/build?
+        Optional<UmhaiInstanceEntity> currentActive =
+            instanceRepository.findByHardwareSerialAndAppIdAndStatus(hardwareSerial, appId, "Active");
+
+        if (currentActive.isPresent() && currentActive.get().getInstanceUuid().equals(instanceUuid)) {
+            // Case 1: identical hardware + app + version + build already active — this is the
+            // same running instance checking in again. No new ID, just a heartbeat/touch.
+            ourLog.info("[UMHAI SERVICE] Unchanged instance checking in: {}", instanceUuid);
+            UmhaiInstanceEntity entity = currentActive.get();
+            entity.setLastUpdated(new Date());
+            UmhaiInstanceEntity saved = instanceRepository.save(entity);
+            logHistory(instanceUuid, "CHECKIN", "Instance re-checked in, no version/build change");
+            return mapper.toModel(saved);
         }
+
+        if (currentActive.isPresent()) {
+            // Case 2: same hardware + app, but version and/or build changed — supersede the old
+            // instance with a newly-issued UMHAI ID, chained via previousInstanceUuid.
+            UmhaiInstanceEntity oldEntity = currentActive.get();
+            String oldUuid = oldEntity.getInstanceUuid();
+            ourLog.info("[UMHAI SERVICE] Version/build changed for {} ({} {} -> {} {}). "
+                    + "Decommissioning {} and issuing new UMHAI ID {}.",
+                hardwareSerial, oldEntity.getAppVersion(), oldEntity.getBuildNumber(),
+                appVersion, buildNumber, oldUuid, instanceUuid);
+
+            oldEntity.setStatus("Decommissioned");
+            oldEntity.setLastUpdated(new Date());
+            oldEntity.setDecommissionedAt(new Date());
+            oldEntity.setDecommissionedReason("Superseded by version/build update ("
+                + oldEntity.getAppVersion() + "/" + oldEntity.getBuildNumber()
+                + " -> " + appVersion + "/" + buildNumber + ")");
+            instanceRepository.save(oldEntity);
+            logHistory(oldUuid, "DECOMMISSIONED", "Superseded by new UMHAI ID " + instanceUuid);
+
+            UmhaiInstanceEntity newEntity = instanceRepository.findById(instanceUuid)
+                .orElse(new UmhaiInstanceEntity());
+            newEntity.setInstanceUuid(instanceUuid);
+            newEntity.setHardwareSerial(hardwareSerial);
+            newEntity.setPlatform(platform);
+            if (model != null) {
+                newEntity.setModel(model);
+            }
+            newEntity.setAppId(appId);
+            newEntity.setAppVersion(appVersion);
+            if (buildNumber != null) {
+                newEntity.setBuildNumber(buildNumber);
+            }
+            newEntity.setStatus("Active");
+            newEntity.setFirstLaunch(isFirstLaunch);
+            newEntity.setPreviousInstanceUuid(oldUuid);
+            newEntity.setRegisteredAt(new Date());
+            newEntity.setLastUpdated(new Date());
+            newEntity.setRegisteredBy(registeredBy);
+
+            UmhaiInstanceEntity saved = instanceRepository.save(newEntity);
+            logHistory(instanceUuid, "VERSION_UPDATE", "New UMHAI ID issued, supersedes " + oldUuid);
+            return mapper.toModel(saved);
+        }
+
+        // Case 3: no active instance exists for this hardware+app at all — brand new registration.
+        // (If this exact hardware+app+version+build combo was previously decommissioned, this
+        // reactivates that same row rather than creating a duplicate — same deterministic UUID.)
+        ourLog.info("[UMHAI SERVICE] No active instance found. Registering: {}", instanceUuid);
+        UmhaiInstanceEntity entity = instanceRepository.findById(instanceUuid)
+            .orElse(new UmhaiInstanceEntity());
+        entity.setInstanceUuid(instanceUuid);
+        entity.setHardwareSerial(hardwareSerial);
+        entity.setPlatform(platform);
+        if (model != null) {
+            entity.setModel(model);
+        }
+        entity.setAppId(appId);
+        entity.setAppVersion(appVersion);
+        if (buildNumber != null) {
+            entity.setBuildNumber(buildNumber);
+        }
+        entity.setStatus("Active");
+        entity.setFirstLaunch(isFirstLaunch);
+        entity.setRegisteredAt(new Date());
+        entity.setLastUpdated(new Date());
+        entity.setRegisteredBy(registeredBy);
+        entity.setDecommissionedAt(null);
+        entity.setDecommissionedReason(null);
+
+        UmhaiInstanceEntity saved = instanceRepository.save(entity);
+        logHistory(instanceUuid, "INSTALL", "New instance registered");
+        return mapper.toModel(saved);
     }
 
     public UmhaiInstance findByUuid(String instanceUuid) {
         if (!validateUuid(instanceUuid)) {
             throw new IllegalArgumentException("Invalid UUID format: " + instanceUuid);
         }
-        return instanceStore.get(instanceUuid);
+        return instanceRepository.findById(instanceUuid)
+            .map(mapper::toModel)
+            .orElse(null);
     }
 
     public List<UmhaiInstance> getAllActiveInstances() {
+        List<UmhaiInstanceEntity> activeEntities = instanceRepository.findByStatus("Active");
         List<UmhaiInstance> active = new ArrayList<>();
-        for (UmhaiInstance instance : instanceStore.values()) {
-            if (instance.isActive()) {
-                active.add(instance);
-            }
+        for (UmhaiInstanceEntity entity : activeEntities) {
+            active.add(mapper.toModel(entity));
         }
         return active;
     }
@@ -310,24 +366,25 @@ public class UmhaiRegistrationService {
         if (!validateUuid(instanceUuid)) {
             return false;
         }
-        UmhaiInstance instance = instanceStore.get(instanceUuid);
-        return instance != null && instance.isActive();
+        return instanceRepository.findById(instanceUuid)
+            .map(entity -> "Active".equals(entity.getStatus()))
+            .orElse(false);
     }
 
+    @Transactional
     public void deleteInstance(String instanceUuid) {
         if (!validateUuid(instanceUuid)) {
             throw new IllegalArgumentException("Invalid UUID format: " + instanceUuid);
         }
-        instanceStore.remove(instanceUuid);
-        historyLog.removeIf(entry -> entry.get("instanceUuid").equals(instanceUuid));
-        saveData();
+        instanceRepository.deleteById(instanceUuid);
+        historyRepository.deleteByInstanceUuid(instanceUuid);
     }
 
     public Map<String, Object> getStatistics() {
         Map<String, Object> stats = new HashMap<>();
-        stats.put("totalActiveInstances", instanceStore.values().stream().filter(UmhaiInstance::isActive).count());
-        stats.put("totalInstances", instanceStore.size());
-        stats.put("totalHistoryEvents", historyLog.size());
+        stats.put("totalActiveInstances", instanceRepository.countByStatus("Active"));
+        stats.put("totalInstances", instanceRepository.count());
+        stats.put("totalHistoryEvents", historyRepository.count());
         stats.put("validPlatforms", VALID_PLATFORMS);
         stats.put("validStatuses", VALID_STATUSES);
         stats.put("status", "UP");
@@ -347,133 +404,54 @@ public class UmhaiRegistrationService {
         return rules;
     }
 
+    @Transactional
     public synchronized UmhaiInstance handleHardwareTransfer(String hardwareSerial, String appId, Map<String, Object> newData) {
-        String oldUuid = generateUuidV5(hardwareSerial, appId);
-        UmhaiInstance oldInstance = instanceStore.get(oldUuid);
-        
-        if (oldInstance == null) {
+        Optional<UmhaiInstanceEntity> oldEntityOpt =
+            instanceRepository.findByHardwareSerialAndAppIdAndStatus(hardwareSerial, appId, "Active");
+
+        if (oldEntityOpt.isEmpty()) {
             return registerInstance(newData);
         }
 
-        oldInstance.setStatus("Decommissioned");
-        oldInstance.setLastUpdated(new Date());
-        logHistory(oldUuid, "DECOMMISSIONED", new Date(), "Hardware transferred");
+        UmhaiInstanceEntity oldEntity = oldEntityOpt.get();
+        String oldUuid = oldEntity.getInstanceUuid();
+        oldEntity.setStatus("Decommissioned");
+        oldEntity.setLastUpdated(new Date());
+        oldEntity.setDecommissionedAt(new Date());
+        oldEntity.setDecommissionedReason("Hardware transferred");
+        instanceRepository.save(oldEntity);
+        logHistory(oldUuid, "DECOMMISSIONED", "Hardware transferred");
 
-        String transferId = UUID.randomUUID().toString();
-        String newUuid = generateUuidV5(hardwareSerial + "_" + transferId, appId);
-        
-        UmhaiInstance newInstance = new UmhaiInstance();
-        newInstance.setInstanceUuid(newUuid);
-        newInstance.setHardwareSerial(hardwareSerial);
-        newInstance.setPlatform((String) newData.get("platform"));
-        newInstance.setModel((String) newData.get("model"));
-        newInstance.setAppId(appId);
-        newInstance.setAppVersion((String) newData.get("appVersion"));
-        newInstance.setBuildNumber((String) newData.get("buildNumber"));
-        newInstance.setStatus("Active");
-        newInstance.setFirstLaunch(true);
-        newInstance.setPreviousInstanceUuid(oldUuid);
-        newInstance.setRegisteredAt(new Date());
-        newInstance.setLastUpdated(new Date());
-        newInstance.setRegisteredBy((String) newData.getOrDefault("registeredBy", "system"));
+        String newAppVersion = (String) newData.get("appVersion");
+        String newBuildNumber = (String) newData.get("buildNumber");
+        String newUuid = generateUuidV5(hardwareSerial, appId, newAppVersion, newBuildNumber);
 
-        instanceStore.put(newUuid, newInstance);
-        logHistory(newUuid, "TRANSFER", new Date(), "New instance after transfer");
-        saveData();
-        return newInstance;
+        UmhaiInstanceEntity newEntity = instanceRepository.findById(newUuid)
+            .orElse(new UmhaiInstanceEntity());
+        newEntity.setInstanceUuid(newUuid);
+        newEntity.setHardwareSerial(hardwareSerial);
+        newEntity.setPlatform((String) newData.get("platform"));
+        newEntity.setModel((String) newData.get("model"));
+        newEntity.setAppId(appId);
+        newEntity.setAppVersion(newAppVersion);
+        newEntity.setBuildNumber(newBuildNumber);
+        newEntity.setStatus("Active");
+        newEntity.setFirstLaunch(true);
+        newEntity.setPreviousInstanceUuid(oldUuid);
+        newEntity.setRegisteredAt(new Date());
+        newEntity.setLastUpdated(new Date());
+        newEntity.setRegisteredBy((String) newData.getOrDefault("registeredBy", "system"));
+        newEntity.setDecommissionedAt(null);
+        newEntity.setDecommissionedReason(null);
+
+        UmhaiInstanceEntity savedNew = instanceRepository.save(newEntity);
+        logHistory(newUuid, "TRANSFER", "New instance after transfer");
+        return mapper.toModel(savedNew);
     }
 
-    private void loadData() {
-        try {
-            File file = new File(DATA_FILE);
-            if (file.exists()) {
-                String content = new String(Files.readAllBytes(Paths.get(DATA_FILE)));
-                @SuppressWarnings("unchecked")
-                Map<String, Object> data = objectMapper.readValue(content, Map.class);
-                
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> instances = (List<Map<String, Object>>) data.get("instances");
-                if (instances != null) {
-                    for (Map<String, Object> instanceData : instances) {
-                        UmhaiInstance instance = new UmhaiInstance();
-                        instance.setInstanceUuid((String) instanceData.get("instanceUuid"));
-                        instance.setHardwareSerial((String) instanceData.get("hardwareSerial"));
-                        instance.setPlatform((String) instanceData.get("platform"));
-                        instance.setModel((String) instanceData.get("model"));
-                        instance.setAppId((String) instanceData.get("appId"));
-                        instance.setAppVersion((String) instanceData.get("appVersion"));
-                        instance.setBuildNumber((String) instanceData.get("buildNumber"));
-                        instance.setStatus((String) instanceData.get("status"));
-                        instance.setFirstLaunch((Boolean) instanceData.get("firstLaunch"));
-                        if (instanceData.get("registeredAt") != null) {
-                            instance.setRegisteredAt(new Date((Long) instanceData.get("registeredAt")));
-                        }
-                        if (instanceData.get("lastUpdated") != null) {
-                            instance.setLastUpdated(new Date((Long) instanceData.get("lastUpdated")));
-                        }
-                        if (instanceData.get("previousInstanceUuid") != null) {
-                            instance.setPreviousInstanceUuid((String) instanceData.get("previousInstanceUuid"));
-                        }
-                        if (instanceData.get("registeredBy") != null) {
-                            instance.setRegisteredBy((String) instanceData.get("registeredBy"));
-                        }
-                        instanceStore.put(instance.getInstanceUuid().getValue(), instance);
-                    }
-                    System.out.println("Loaded " + instanceStore.size() + " instances from file");
-                }
-                
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> history = (List<Map<String, Object>>) data.get("history");
-                if (history != null) {
-                    historyLog.addAll(history);
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Could not load data from file: " + e.getMessage());
-        }
-    }
-
-    private void saveData() {
-        try {
-            Map<String, Object> data = new HashMap<>();
-            List<Map<String, Object>> instances = new ArrayList<>();
-            for (UmhaiInstance instance : instanceStore.values()) {
-                Map<String, Object> instanceData = new HashMap<>();
-                instanceData.put("instanceUuid", instance.getInstanceUuid().getValue());
-                instanceData.put("hardwareSerial", instance.getHardwareSerial().getValue());
-                instanceData.put("platform", instance.getPlatform().getValue());
-                instanceData.put("model", instance.getModel() != null ? instance.getModel().getValue() : null);
-                instanceData.put("appId", instance.getAppId().getValue());
-                instanceData.put("appVersion", instance.getAppVersion().getValue());
-                instanceData.put("buildNumber", instance.getBuildNumber() != null ? instance.getBuildNumber().getValue() : null);
-                instanceData.put("status", instance.getStatus().getValue());
-                instanceData.put("firstLaunch", instance.getFirstLaunch() != null ? instance.getFirstLaunch().getValue() : false);
-                instanceData.put("registeredAt", instance.getRegisteredAt().getValue().getTime());
-                instanceData.put("lastUpdated", instance.getLastUpdated() != null ? instance.getLastUpdated().getValue().getTime() : null);
-                instanceData.put("previousInstanceUuid", instance.getPreviousInstanceUuid() != null ? instance.getPreviousInstanceUuid().getValue() : null);
-                instanceData.put("registeredBy", instance.getRegisteredBy() != null ? instance.getRegisteredBy().getValue() : null);
-                instances.add(instanceData);
-            }
-            data.put("instances", instances);
-            data.put("history", historyLog);
-            data.put("lastSaved", System.currentTimeMillis());
-
-            String json = objectMapper.writeValueAsString(data);
-            Files.write(Paths.get(DATA_FILE), json.getBytes(StandardCharsets.UTF_8));
-            System.out.println("Saved " + instanceStore.size() + " instances to file");
-        } catch (IOException e) {
-            System.err.println("Could not save data to file: " + e.getMessage());
-        }
-    }
-
-    private void logHistory(String instanceUuid, String eventType, Date timestamp, String description) {
-        Map<String, Object> logEntry = new HashMap<>();
-        logEntry.put("eventId", UUID.randomUUID().toString());
-        logEntry.put("instanceUuid", instanceUuid);
-        logEntry.put("eventType", eventType);
-        logEntry.put("timestamp", timestamp.getTime());
-        logEntry.put("description", description);
-        historyLog.add(logEntry);
+    private void logHistory(String instanceUuid, String eventType, String description) {
+        UmhaiHistoryEntity entity = mapper.toHistoryEntity(instanceUuid, eventType, description);
+        historyRepository.save(entity);
         ourLog.info("[UMHAI AUDIT] Logged History Event -> Instance: {} | Action: {}", instanceUuid, eventType);
     }
 }

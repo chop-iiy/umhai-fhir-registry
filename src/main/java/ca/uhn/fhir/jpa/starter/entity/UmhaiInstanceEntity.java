@@ -4,8 +4,7 @@ import jakarta.persistence.*;
 import java.util.Date;
 
 @Entity
-@Table(name = "umhai_instances", 
-       uniqueConstraints = @UniqueConstraint(columnNames = {"hardware_serial", "app_id"}))
+@Table(name = "umhai_instances")
 public class UmhaiInstanceEntity {
 
     @Id
