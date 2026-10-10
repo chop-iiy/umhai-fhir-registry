@@ -81,4 +81,3 @@ public final class HealthCheck {
 		return p.endsWith("/") ? p.substring(0, p.length() - 1) : p;
 	}
 }
-
