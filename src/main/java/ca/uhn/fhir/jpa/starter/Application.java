@@ -59,14 +59,19 @@ public class Application extends SpringBootServletInitializer {
 		ServletRegistrationBean<RestfulServer> servletRegistrationBean = new ServletRegistrationBean<>();
 		beanFactory.autowireBean(restfulServer);
 
-		// Dynamic registration of your custom resource metadata provider layer
-		try {
-			UmhaiInstanceResourceProvider umhaiProvider =
-					applicationContext.getBean(UmhaiInstanceResourceProvider.class);
-			restfulServer.registerProvider(umhaiProvider);
-		} catch (Exception e) {
-			// Safe fallback if bean initialization sequences lag behind context lifecycle mappings
-			restfulServer.registerProvider(new UmhaiInstanceResourceProvider());
+		// UmhaiInstance is built on the R4 model, and HAPI refuses to register a resource provider
+		// whose model version differs from the server's FHIR version. Only register it on R4 servers;
+		// on DSTU2/DSTU3/R4B/R5 the server would otherwise fail to start.
+		String fhirVersion = applicationContext.getEnvironment().getProperty("hapi.fhir.fhir_version", "R4");
+		if ("R4".equalsIgnoreCase(fhirVersion)) {
+			try {
+				UmhaiInstanceResourceProvider umhaiProvider =
+						applicationContext.getBean(UmhaiInstanceResourceProvider.class);
+				restfulServer.registerProvider(umhaiProvider);
+			} catch (Exception e) {
+				// Safe fallback if bean initialization sequences lag behind context lifecycle mappings
+				restfulServer.registerProvider(new UmhaiInstanceResourceProvider());
+			}
 		}
 
 		servletRegistrationBean.setServlet(restfulServer);
