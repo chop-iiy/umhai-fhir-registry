@@ -13,7 +13,6 @@ import ca.uhn.fhir.jpa.subscription.match.config.SubscriptionProcessorConfig;
 import ca.uhn.fhir.jpa.subscription.match.config.WebsocketDispatcherConfig;
 import ca.uhn.fhir.jpa.subscription.submit.config.SubscriptionSubmitterConfig;
 import ca.uhn.fhir.rest.server.RestfulServer;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.config.AutowireCapableBeanFactory;
 import org.springframework.boot.SpringApplication;
@@ -31,48 +30,49 @@ import org.springframework.context.annotation.Import;
 @ServletComponentScan(basePackageClasses = {RestfulServer.class})
 @SpringBootApplication(exclude = {ThymeleafAutoConfiguration.class, QuartzAutoConfiguration.class})
 @Import({
-    StarterCrR4Config.class,
-    StarterCrDstu3Config.class,
-    StarterCdsHooksConfig.class,
-    SubscriptionSubmitterConfig.class,
-    SubscriptionProcessorConfig.class,
-    SubscriptionChannelConfig.class,
-    WebsocketDispatcherConfig.class,
-    MdmConfig.class,
-    JpaBatch2Config.class,
-    Batch2JobsConfig.class
+	StarterCrR4Config.class,
+	StarterCrDstu3Config.class,
+	StarterCdsHooksConfig.class,
+	SubscriptionSubmitterConfig.class,
+	SubscriptionProcessorConfig.class,
+	SubscriptionChannelConfig.class,
+	WebsocketDispatcherConfig.class,
+	MdmConfig.class,
+	JpaBatch2Config.class,
+	Batch2JobsConfig.class
 })
 public class Application extends SpringBootServletInitializer {
 
-    public static void main(String[] args) {
-        SpringApplication.run(Application.class, args);
-    }
+	public static void main(String[] args) {
+		SpringApplication.run(Application.class, args);
+	}
 
-    @Autowired
-    private AutowireCapableBeanFactory beanFactory;
+	@Autowired
+	private AutowireCapableBeanFactory beanFactory;
 
-    @Autowired
-    private ApplicationContext applicationContext;
+	@Autowired
+	private ApplicationContext applicationContext;
 
-    @Bean
-    @Conditional(OnEitherVersion.class)
-    public ServletRegistrationBean<RestfulServer> hapiServletRegistration(RestfulServer restfulServer) {
-        ServletRegistrationBean<RestfulServer> servletRegistrationBean = new ServletRegistrationBean<>();
-        beanFactory.autowireBean(restfulServer);
-        
-        // Dynamic registration of your custom resource metadata provider layer
-        try {
-            UmhaiInstanceResourceProvider umhaiProvider = applicationContext.getBean(UmhaiInstanceResourceProvider.class);
-            restfulServer.registerProvider(umhaiProvider);
-        } catch (Exception e) {
-            // Safe fallback if bean initialization sequences lag behind context lifecycle mappings
-            restfulServer.registerProvider(new UmhaiInstanceResourceProvider());
-        }
+	@Bean
+	@Conditional(OnEitherVersion.class)
+	public ServletRegistrationBean<RestfulServer> hapiServletRegistration(RestfulServer restfulServer) {
+		ServletRegistrationBean<RestfulServer> servletRegistrationBean = new ServletRegistrationBean<>();
+		beanFactory.autowireBean(restfulServer);
 
-        servletRegistrationBean.setServlet(restfulServer);
-        servletRegistrationBean.addUrlMappings("/fhir/*");
-        servletRegistrationBean.setLoadOnStartup(1);
+		// Dynamic registration of your custom resource metadata provider layer
+		try {
+			UmhaiInstanceResourceProvider umhaiProvider =
+					applicationContext.getBean(UmhaiInstanceResourceProvider.class);
+			restfulServer.registerProvider(umhaiProvider);
+		} catch (Exception e) {
+			// Safe fallback if bean initialization sequences lag behind context lifecycle mappings
+			restfulServer.registerProvider(new UmhaiInstanceResourceProvider());
+		}
 
-        return servletRegistrationBean;
-    }
+		servletRegistrationBean.setServlet(restfulServer);
+		servletRegistrationBean.addUrlMappings("/fhir/*");
+		servletRegistrationBean.setLoadOnStartup(1);
+
+		return servletRegistrationBean;
+	}
 }

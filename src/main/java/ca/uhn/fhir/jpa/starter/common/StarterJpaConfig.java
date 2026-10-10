@@ -186,15 +186,12 @@ public class StarterJpaConfig {
 			ConfigurableListableBeanFactory myConfigurableListableBeanFactory,
 			FhirContext theFhirContext,
 			JpaStorageSettings theStorageSettings) {
-			LocalContainerEntityManagerFactoryBean entityManagerFactoryBean =
+		LocalContainerEntityManagerFactoryBean entityManagerFactoryBean =
 				HapiEntityManagerFactoryUtil.newEntityManagerFactory(
-					myConfigurableListableBeanFactory, theFhirContext, theStorageSettings);
+						myConfigurableListableBeanFactory, theFhirContext, theStorageSettings);
 
-			entityManagerFactoryBean.setPackagesToScan(
-				"ca.uhn.fhir.jpa.entity",
-				"ca.uhn.fhir.jpa.model.entity",
-				"ca.uhn.fhir.jpa.starter.entity"
-			);
+		entityManagerFactoryBean.setPackagesToScan(
+				"ca.uhn.fhir.jpa.entity", "ca.uhn.fhir.jpa.model.entity", "ca.uhn.fhir.jpa.starter.entity");
 		// Spring Boot Autoconfiguration defaults
 		theJpaProperties
 				.getProperties()

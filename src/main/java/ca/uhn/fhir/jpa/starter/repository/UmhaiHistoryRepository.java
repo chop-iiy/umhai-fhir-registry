@@ -11,14 +11,14 @@ import java.util.List;
 @Repository
 public interface UmhaiHistoryRepository extends JpaRepository<UmhaiHistoryEntity, Long> {
 
-    List<UmhaiHistoryEntity> findByInstanceUuidOrderByTimestampDesc(String instanceUuid);
+	List<UmhaiHistoryEntity> findByInstanceUuidOrderByTimestampDesc(String instanceUuid);
 
-    @Query("SELECT h FROM UmhaiHistoryEntity h WHERE h.instanceUuid = :instanceUuid AND h.eventType = :eventType")
-    List<UmhaiHistoryEntity> findByInstanceAndEventType(@Param("instanceUuid") String instanceUuid,
-                                                         @Param("eventType") String eventType);
+	@Query("SELECT h FROM UmhaiHistoryEntity h WHERE h.instanceUuid = :instanceUuid AND h.eventType = :eventType")
+	List<UmhaiHistoryEntity> findByInstanceAndEventType(
+			@Param("instanceUuid") String instanceUuid, @Param("eventType") String eventType);
 
-    @Query("SELECT COUNT(h) FROM UmhaiHistoryEntity h WHERE h.instanceUuid = :instanceUuid")
-    long countEventsForInstance(@Param("instanceUuid") String instanceUuid);
+	@Query("SELECT COUNT(h) FROM UmhaiHistoryEntity h WHERE h.instanceUuid = :instanceUuid")
+	long countEventsForInstance(@Param("instanceUuid") String instanceUuid);
 
-    void deleteByInstanceUuid(String instanceUuid);
+	void deleteByInstanceUuid(String instanceUuid);
 }

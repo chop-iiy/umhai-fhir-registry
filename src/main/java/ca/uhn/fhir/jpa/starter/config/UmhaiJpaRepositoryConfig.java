@@ -5,9 +5,7 @@ import org.springframework.data.jpa.repository.config.EnableJpaRepositories;
 
 @Configuration
 @EnableJpaRepositories(
-    basePackages = "ca.uhn.fhir.jpa.starter.repository",
-    entityManagerFactoryRef = "entityManagerFactory",
-    transactionManagerRef = "transactionManager"
-)
-public class UmhaiJpaRepositoryConfig {
-}
+		basePackages = "ca.uhn.fhir.jpa.starter.repository",
+		entityManagerFactoryRef = "entityManagerFactory",
+		transactionManagerRef = "transactionManager")
+public class UmhaiJpaRepositoryConfig {}
