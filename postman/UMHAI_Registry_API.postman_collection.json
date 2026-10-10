@@ -140,7 +140,7 @@
                   "    var jsonData = pm.response.json();",
                   "    pm.expect(jsonData.status).to.eql('success');",
                   "    pm.expect(jsonData.instanceUuid).to.not.be.empty;",
-                  "    pm.environment.set('instanceUuid', jsonData.instanceUuid);",
+                  "    pm.collectionVariables.set('instanceUuid', jsonData.instanceUuid);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -186,7 +186,7 @@
                   "pm.test('Extended metadata is returned', function () {",
                   "    var json = pm.response.json();",
                   "    pm.expect(json.status).to.eql('Active');",
-                  "    pm.environment.set('metaInstanceUuid', json.instanceUuid);",
+                  "    pm.collectionVariables.set('metaInstanceUuid', json.instanceUuid);",
                   "    pm.expect(json.metadata.appName).to.eql('Provider Connect');",
                   "    pm.expect(json.metadata.publisher).to.eql('CHOP');",
                   "    pm.expect(json.metadata.classification).to.eql('samd');",
@@ -488,7 +488,7 @@
                   "});",
                   "pm.test('Metadata was persisted and read back', function () {",
                   "    var json = pm.response.json();",
-                  "    pm.expect(json.instanceUuid).to.eql(pm.environment.get('metaInstanceUuid'));",
+                  "    pm.expect(json.instanceUuid).to.eql(pm.collectionVariables.get('metaInstanceUuid'));",
                   "    pm.expect(json.metadata.appName).to.eql('Provider Connect');",
                   "    pm.expect(json.metadata.supportEmail).to.eql('help@example.org');",
                   "    pm.expect(json.metadata.releaseDate).to.be.a('string').and.not.empty;",
@@ -582,7 +582,7 @@
                   "    var jsonData = pm.response.json();",
                   "    pm.expect(jsonData.status).to.eql('success');",
                   "    pm.expect(jsonData.newInstanceUuid).to.not.be.empty;",
-                  "    pm.environment.set('instanceUuid', jsonData.newInstanceUuid);",
+                  "    pm.collectionVariables.set('instanceUuid', jsonData.newInstanceUuid);",
                   "});"
                 ],
                 "type": "text/javascript"
@@ -1330,6 +1330,11 @@
     },
     {
       "key": "instanceUuid",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "metaInstanceUuid",
       "value": "",
       "type": "string"
     }
