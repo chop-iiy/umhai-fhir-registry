@@ -83,6 +83,9 @@ public class UmhaiRegistrationEndpoint {
 
 			response.setHeader("X-App-Instance-ID", instance.getInstanceUuid().getValue());
 			return ResponseEntity.ok(responseData);
+		} catch (IllegalArgumentException e) {
+			// Validation failures are the caller's fault, not a server error
+			return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
 					.body(createErrorResponse(e.getLocalizedMessage()));
@@ -172,6 +175,8 @@ public class UmhaiRegistrationEndpoint {
 			response.put("status", "transferred");
 			response.put("instanceUuid", instance.getInstanceUuid().getValue());
 			return ResponseEntity.ok(response);
+		} catch (IllegalArgumentException e) {
+			return ResponseEntity.badRequest().body(createErrorResponse(e.getMessage()));
 		} catch (Exception e) {
 			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createErrorResponse(e.getMessage()));
 		}

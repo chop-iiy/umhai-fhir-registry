@@ -174,6 +174,58 @@
           "response": []
         },
         {
+          "name": "Register iOS Instance (Full Metadata)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Extended metadata is returned', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.status).to.eql('Active');",
+                  "    pm.environment.set('metaInstanceUuid', json.instanceUuid);",
+                  "    pm.expect(json.metadata.appName).to.eql('Provider Connect');",
+                  "    pm.expect(json.metadata.publisher).to.eql('CHOP');",
+                  "    pm.expect(json.metadata.classification).to.eql('samd');",
+                  "    pm.expect(json.metadata.packageIdentifier).to.eql('com.healthcare.provider');",
+                  "    pm.expect(json.metadata.checksum.algorithm).to.eql('sha-256');",
+                  "    pm.expect(json.metadata.certifications).to.have.lengthOf(2);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-10-09T20:00:00Z\",\n    \"request_id\": \"REQ-META-1\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN55-77AB-01\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"2001\",\n      \"app_name\": \"Provider Connect\",\n      \"publisher\": \"CHOP\",\n      \"publisher_reference\": \"Organization/chop-1\",\n      \"support_email\": \"help@example.org\",\n      \"support_url\": \"https://support.example.org\",\n      \"privacy_policy_url\": \"https://example.org/privacy\",\n      \"classification\": \"samd\",\n      \"package_identifier\": \"com.healthcare.provider\",\n      \"store_url\": \"https://apps.apple.com/app/id123456789\",\n      \"release_date\": \"2026-09-15\",\n      \"checksum\": {\n        \"algorithm\": \"sha-256\",\n        \"value\": \"a3f5c1d2e4b6978081726354a1b2c3d4e5f60718293a4b5c6d7e8f9012345678\"\n      },\n      \"certifications\": [\n        {\n          \"type\": \"ISO-27001\",\n          \"status\": \"active\",\n          \"issued\": \"2026-01-15\",\n          \"expires\": \"2027-01-15\",\n          \"validator\": \"BSI Group\"\n        },\n        {\n          \"type\": \"ONC\",\n          \"status\": \"expired\",\n          \"issued\": \"2023-02-01\",\n          \"expires\": \"2025-02-01\",\n          \"validator\": \"ONC-ACB\"\n        }\n      ]\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
           "name": "Register Android Instance",
           "event": [
             {
@@ -418,6 +470,48 @@
                 "umhai",
                 "instance",
                 "{{instanceUuid}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get Instance Metadata",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status code is 200', function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test('Metadata was persisted and read back', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.instanceUuid).to.eql(pm.environment.get('metaInstanceUuid'));",
+                  "    pm.expect(json.metadata.appName).to.eql('Provider Connect');",
+                  "    pm.expect(json.metadata.supportEmail).to.eql('help@example.org');",
+                  "    pm.expect(json.metadata.releaseDate).to.be.a('string').and.not.empty;",
+                  "    pm.expect(json.metadata.certifications[0].type).to.eql('ISO-27001');",
+                  "    pm.expect(json.metadata.certifications[0].status).to.eql('active');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/instance/{{metaInstanceUuid}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "instance",
+                "{{metaInstanceUuid}}"
               ]
             }
           },
@@ -823,6 +917,328 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-08-02T20:55:00Z\",\n    \"request_id\": \"REQ-778899\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN99-23XJ-01\",\n      \"platform\": \"ios\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Classification",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "    pm.expect(jsonData.message).to.include('classification');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-10-09T20:00:00Z\",\n    \"request_id\": \"REQ-META-1\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN66-88CD-02\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"2001\",\n      \"classification\": \"gadget\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Checksum Length",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "    pm.expect(jsonData.message).to.include('checksumValue');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-10-09T20:00:00Z\",\n    \"request_id\": \"REQ-META-1\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN66-88CD-02\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"2001\",\n      \"checksum\": {\n        \"algorithm\": \"sha-256\",\n        \"value\": \"abc123\"\n      }\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Checksum Missing Value",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "    pm.expect(jsonData.message).to.include('together');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-10-09T20:00:00Z\",\n    \"request_id\": \"REQ-META-1\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN66-88CD-02\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"2001\",\n      \"checksum\": {\n        \"algorithm\": \"sha-256\"\n      }\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Certification Status",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "    pm.expect(jsonData.message).to.include('certifications[0].status');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-10-09T20:00:00Z\",\n    \"request_id\": \"REQ-META-1\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN66-88CD-02\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"2001\",\n      \"certifications\": [\n        {\n          \"type\": \"ISO-27001\",\n          \"status\": \"pending\"\n        }\n      ]\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Certification Expires Before Issued",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "    pm.expect(jsonData.message).to.include('expires must not be before issued');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-10-09T20:00:00Z\",\n    \"request_id\": \"REQ-META-1\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN66-88CD-02\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"2001\",\n      \"certifications\": [\n        {\n          \"type\": \"ISO-27001\",\n          \"status\": \"active\",\n          \"issued\": \"2026-06-01\",\n          \"expires\": \"2026-01-01\"\n        }\n      ]\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Support Email",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "    pm.expect(jsonData.message).to.include('supportEmail');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-10-09T20:00:00Z\",\n    \"request_id\": \"REQ-META-1\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN66-88CD-02\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"2001\",\n      \"support_email\": \"not-an-email\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/umhai/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "umhai",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Store URL",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Should return 400 Bad Request', function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test('Returns validation error', function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData.status).to.eql('error');",
+                  "    pm.expect(jsonData.message).to.include('storeUrl');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"header\": {\n    \"timestamp\": \"2026-10-09T20:00:00Z\",\n    \"request_id\": \"REQ-META-1\"\n  },\n  \"payload\": {\n    \"hardware\": {\n      \"serial_number\": \"SN66-88CD-02\",\n      \"platform\": \"ios\",\n      \"model\": \"iPhone 15 Pro\"\n    },\n    \"application\": {\n      \"app_id\": \"com.healthcare.provider\",\n      \"version\": \"2.5.0\",\n      \"build_number\": \"2001\",\n      \"store_url\": \"ftp://store.example.org\"\n    },\n    \"context\": {\n      \"is_first_launch\": true\n    }\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/umhai/register",
