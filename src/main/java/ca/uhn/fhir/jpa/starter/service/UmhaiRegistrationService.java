@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import ca.uhn.fhir.jpa.starter.custom.UmhaiInstance;
+import ca.uhn.fhir.jpa.starter.entity.UmhaiCertificationEmbeddable;
 import ca.uhn.fhir.jpa.starter.entity.UmhaiInstanceEntity;
 import ca.uhn.fhir.jpa.starter.entity.UmhaiHistoryEntity;
 import ca.uhn.fhir.jpa.starter.mapper.UmhaiMapper;
@@ -15,6 +16,10 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -52,6 +57,37 @@ public class UmhaiRegistrationService {
     private static final Set<String> VALID_STATUSES = new HashSet<>(Arrays.asList(
         "Active", "Pending", "Decommissioned", "Transferred", "Suspended"
     ));
+
+    // ---- Extended (FHIR R6 incubator) metadata rules ----
+
+    private static final Set<String> VALID_CLASSIFICATIONS = new LinkedHashSet<>(Arrays.asList(
+        "wellness", "samd", "digital-therapeutic", "ehr-companion", "other"
+    ));
+
+    /** Hash algorithm -> expected hex length of the digest. */
+    private static final Map<String, Integer> CHECKSUM_HEX_LENGTHS = new LinkedHashMap<>();
+    static {
+        CHECKSUM_HEX_LENGTHS.put("sha-256", 64);
+        CHECKSUM_HEX_LENGTHS.put("sha-384", 96);
+        CHECKSUM_HEX_LENGTHS.put("sha-512", 128);
+    }
+
+    private static final Set<String> VALID_CERTIFICATION_STATUSES = new LinkedHashSet<>(Arrays.asList(
+        "active", "expired", "revoked"
+    ));
+
+    private static final Pattern HEX_PATTERN = Pattern.compile("^[0-9a-fA-F]+$");
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+
+    private static final Pattern URL_PATTERN = Pattern.compile("^https?://[^\\s]+$", Pattern.CASE_INSENSITIVE);
+
+    /** iOS bundle IDs and Android package names: dotted segments, letters/digits/_/-. */
+    private static final Pattern PACKAGE_ID_PATTERN = Pattern.compile(
+        "^[A-Za-z][A-Za-z0-9_-]*(\\.[A-Za-z][A-Za-z0-9_-]*)+$"
+    );
+
+    private static final Pattern PUBLISHER_REFERENCE_PATTERN = Pattern.compile("^Organization/[A-Za-z0-9\\-.]{1,64}$");
 
     private final UmhaiInstanceRepository instanceRepository;
     private final UmhaiHistoryRepository historyRepository;
@@ -220,6 +256,221 @@ public class UmhaiRegistrationService {
         return true;
     }
 
+    // ------------------------------------------------------------------
+    // Extended metadata: validation
+    // ------------------------------------------------------------------
+
+    private boolean validateOptionalLength(String field, String value, int max) {
+        if (value != null && value.length() > max) {
+            addValidationError(field + " must not exceed " + max + " characters");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateOptionalPattern(String field, String value, Pattern pattern, String hint) {
+        if (value != null && !value.isEmpty() && !pattern.matcher(value).matches()) {
+            addValidationError(field + " " + hint);
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * Validates the optional app-identity / packaging / integrity / certification fields.
+     * Every field is optional; only supplied values are checked.
+     */
+    @SuppressWarnings("unchecked")
+    public boolean validateMetadata(Map<String, Object> data) {
+        boolean ok = true;
+
+        ok &= validateOptionalLength("appName", (String) data.get("appName"), 200);
+        ok &= validateOptionalLength("publisher", (String) data.get("publisher"), 200);
+
+        String publisherReference = (String) data.get("publisherReference");
+        ok &= validateOptionalPattern("publisherReference", publisherReference,
+            PUBLISHER_REFERENCE_PATTERN, "must be of the form Organization/<id>");
+
+        String supportEmail = (String) data.get("supportEmail");
+        ok &= validateOptionalLength("supportEmail", supportEmail, 254);
+        ok &= validateOptionalPattern("supportEmail", supportEmail, EMAIL_PATTERN, "must be a valid e-mail address");
+
+        for (String urlField : new String[] {"supportUrl", "privacyPolicyUrl", "storeUrl"}) {
+            String url = (String) data.get(urlField);
+            ok &= validateOptionalLength(urlField, url, 500);
+            ok &= validateOptionalPattern(urlField, url, URL_PATTERN, "must be an http(s) URL");
+        }
+
+        String classification = (String) data.get("classification");
+        if (classification != null && !VALID_CLASSIFICATIONS.contains(classification)) {
+            addValidationError("classification must be one of: " + String.join(", ", VALID_CLASSIFICATIONS));
+            ok = false;
+        }
+
+        String packageIdentifier = (String) data.get("packageIdentifier");
+        ok &= validateOptionalLength("packageIdentifier", packageIdentifier, 150);
+        ok &= validateOptionalPattern("packageIdentifier", packageIdentifier, PACKAGE_ID_PATTERN,
+            "must be a dotted package/bundle identifier (e.g., com.organization.app)");
+
+        if (data.get("releaseDate") != null && parseDate(data.get("releaseDate")) == null) {
+            addValidationError("releaseDate must be an ISO-8601 date or date-time (e.g., 2026-03-15 or 2026-03-15T09:00:00Z)");
+            ok = false;
+        }
+
+        ok &= validateChecksum((String) data.get("checksumAlgorithm"), (String) data.get("checksumValue"));
+
+        Object certs = data.get("certifications");
+        if (certs != null) {
+            if (!(certs instanceof List)) {
+                addValidationError("certifications must be an array");
+                ok = false;
+            } else {
+                int index = 0;
+                for (Object item : (List<Object>) certs) {
+                    ok &= validateCertification(index++, item);
+                }
+            }
+        }
+        return ok;
+    }
+
+    private boolean validateChecksum(String algorithm, String value) {
+        if (algorithm == null && value == null) {
+            return true;
+        }
+        if (algorithm == null || value == null) {
+            addValidationError("checksumAlgorithm and checksumValue must be supplied together");
+            return false;
+        }
+        Integer expected = CHECKSUM_HEX_LENGTHS.get(algorithm.toLowerCase());
+        if (expected == null) {
+            addValidationError("checksumAlgorithm must be one of: " + String.join(", ", CHECKSUM_HEX_LENGTHS.keySet()));
+            return false;
+        }
+        if (!HEX_PATTERN.matcher(value).matches() || value.length() != expected) {
+            addValidationError("checksumValue must be a " + expected + "-character hex string for " + algorithm.toLowerCase());
+            return false;
+        }
+        return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean validateCertification(int index, Object item) {
+        String prefix = "certifications[" + index + "].";
+        if (!(item instanceof Map)) {
+            addValidationError("certifications[" + index + "] must be an object");
+            return false;
+        }
+        Map<String, Object> cert = (Map<String, Object>) item;
+        boolean ok = true;
+
+        String type = (String) cert.get("type");
+        if (type == null || type.isEmpty()) {
+            addValidationError(prefix + "type is required");
+            ok = false;
+        } else {
+            ok &= validateOptionalLength(prefix + "type", type, 50);
+        }
+
+        String status = (String) cert.get("status");
+        if (status == null || !VALID_CERTIFICATION_STATUSES.contains(status)) {
+            addValidationError(prefix + "status must be one of: " + String.join(", ", VALID_CERTIFICATION_STATUSES));
+            ok = false;
+        }
+
+        Date issued = null;
+        Date expires = null;
+        if (cert.get("issued") != null) {
+            issued = parseDate(cert.get("issued"));
+            if (issued == null) {
+                addValidationError(prefix + "issued must be an ISO-8601 date or date-time");
+                ok = false;
+            }
+        }
+        if (cert.get("expires") != null) {
+            expires = parseDate(cert.get("expires"));
+            if (expires == null) {
+                addValidationError(prefix + "expires must be an ISO-8601 date or date-time");
+                ok = false;
+            }
+        }
+        if (issued != null && expires != null && expires.before(issued)) {
+            addValidationError(prefix + "expires must not be before issued");
+            ok = false;
+        }
+        ok &= validateOptionalLength(prefix + "validator", (String) cert.get("validator"), 200);
+        return ok;
+    }
+
+    /** Accepts ISO-8601 date-time (with offset) or plain date; returns null if unparseable. */
+    private Date parseDate(Object value) {
+        if (value instanceof Number) {
+            return new Date(((Number) value).longValue());
+        }
+        if (!(value instanceof String)) {
+            return null;
+        }
+        String text = ((String) value).trim();
+        try {
+            return Date.from(Instant.parse(text));
+        } catch (DateTimeParseException ignored) {
+            // fall through to plain date
+        }
+        try {
+            return Date.from(LocalDate.parse(text).atStartOfDay().toInstant(ZoneOffset.UTC));
+        } catch (DateTimeParseException ignored) {
+            return null;
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Extended metadata: persistence
+    // ------------------------------------------------------------------
+
+    /**
+     * Copies any supplied extended metadata onto the entity. Keys that are absent are left
+     * untouched, so a plain re-registration never wipes previously stored metadata.
+     * Must be called after validateMetadata().
+     */
+    @SuppressWarnings("unchecked")
+    private void applyMetadata(UmhaiInstanceEntity entity, Map<String, Object> data) {
+        if (data == null) {
+            return;
+        }
+        if (data.containsKey("appName")) entity.setAppName((String) data.get("appName"));
+        if (data.containsKey("publisher")) entity.setPublisher((String) data.get("publisher"));
+        if (data.containsKey("publisherReference")) entity.setPublisherReference((String) data.get("publisherReference"));
+        if (data.containsKey("supportEmail")) entity.setSupportEmail((String) data.get("supportEmail"));
+        if (data.containsKey("supportUrl")) entity.setSupportUrl((String) data.get("supportUrl"));
+        if (data.containsKey("privacyPolicyUrl")) entity.setPrivacyPolicyUrl((String) data.get("privacyPolicyUrl"));
+        if (data.containsKey("classification")) entity.setClassification((String) data.get("classification"));
+        if (data.containsKey("packageIdentifier")) entity.setPackageIdentifier((String) data.get("packageIdentifier"));
+        if (data.containsKey("storeUrl")) entity.setStoreUrl((String) data.get("storeUrl"));
+        if (data.containsKey("releaseDate")) entity.setReleaseDate(parseDate(data.get("releaseDate")));
+        if (data.containsKey("checksumAlgorithm")) {
+            String algorithm = (String) data.get("checksumAlgorithm");
+            entity.setChecksumAlgorithm(algorithm != null ? algorithm.toLowerCase() : null);
+        }
+        if (data.containsKey("checksumValue")) {
+            String value = (String) data.get("checksumValue");
+            entity.setChecksumValue(value != null ? value.toLowerCase() : null);
+        }
+        if (data.get("certifications") instanceof List) {
+            List<UmhaiCertificationEmbeddable> certs = new ArrayList<>();
+            for (Object item : (List<Object>) data.get("certifications")) {
+                Map<String, Object> c = (Map<String, Object>) item;
+                certs.add(new UmhaiCertificationEmbeddable(
+                    (String) c.get("type"),
+                    (String) c.get("status"),
+                    parseDate(c.get("issued")),
+                    parseDate(c.get("expires")),
+                    (String) c.get("validator")));
+            }
+            entity.getCertifications().clear();
+            entity.getCertifications().addAll(certs);
+        }
+    }
+
     private void addValidationError(String error) {
         validationErrors.add(error);
     }
@@ -248,6 +499,7 @@ public class UmhaiRegistrationService {
         isValid &= validateAppVersion(appVersion);
         isValid &= validateBuildNumber(buildNumber);
         isValid &= validateStatus("Active");
+        isValid &= validateMetadata(registrationData);
 
         if (!isValid) {
             throw new IllegalArgumentException("Validation failed: " + String.join("; ", validationErrors));
@@ -265,6 +517,7 @@ public class UmhaiRegistrationService {
             ourLog.info("[UMHAI SERVICE] Unchanged instance checking in: {}", instanceUuid);
             UmhaiInstanceEntity entity = currentActive.get();
             entity.setLastUpdated(new Date());
+            applyMetadata(entity, registrationData);
             UmhaiInstanceEntity saved = instanceRepository.save(entity);
             logHistory(instanceUuid, "CHECKIN", "Instance re-checked in, no version/build change");
             return mapper.toModel(saved);
@@ -308,6 +561,8 @@ public class UmhaiRegistrationService {
             newEntity.setRegisteredAt(new Date());
             newEntity.setLastUpdated(new Date());
             newEntity.setRegisteredBy(registeredBy);
+            carryOverMetadata(oldEntity, newEntity);
+            applyMetadata(newEntity, registrationData);
 
             UmhaiInstanceEntity saved = instanceRepository.save(newEntity);
             logHistory(instanceUuid, "VERSION_UPDATE", "New UMHAI ID issued, supersedes " + oldUuid);
@@ -338,6 +593,7 @@ public class UmhaiRegistrationService {
         entity.setRegisteredBy(registeredBy);
         entity.setDecommissionedAt(null);
         entity.setDecommissionedReason(null);
+        applyMetadata(entity, registrationData);
 
         UmhaiInstanceEntity saved = instanceRepository.save(entity);
         logHistory(instanceUuid, "INSTALL", "New instance registered");
@@ -401,6 +657,11 @@ public class UmhaiRegistrationService {
         rules.put("validPlatforms", VALID_PLATFORMS);
         rules.put("validStatuses", VALID_STATUSES);
         rules.put("maxModelLength", 100);
+        rules.put("validClassifications", VALID_CLASSIFICATIONS);
+        rules.put("checksumAlgorithms", CHECKSUM_HEX_LENGTHS);
+        rules.put("validCertificationStatuses", VALID_CERTIFICATION_STATUSES);
+        rules.put("packageIdentifierPattern", PACKAGE_ID_PATTERN.pattern());
+        rules.put("publisherReferencePattern", PUBLISHER_REFERENCE_PATTERN.pattern());
         return rules;
     }
 
@@ -411,6 +672,11 @@ public class UmhaiRegistrationService {
 
         if (oldEntityOpt.isEmpty()) {
             return registerInstance(newData);
+        }
+
+        clearValidationErrors();
+        if (!validateMetadata(newData)) {
+            throw new IllegalArgumentException("Validation failed: " + String.join("; ", validationErrors));
         }
 
         UmhaiInstanceEntity oldEntity = oldEntityOpt.get();
@@ -443,10 +709,35 @@ public class UmhaiRegistrationService {
         newEntity.setRegisteredBy((String) newData.getOrDefault("registeredBy", "system"));
         newEntity.setDecommissionedAt(null);
         newEntity.setDecommissionedReason(null);
+        carryOverMetadata(oldEntity, newEntity);
+        applyMetadata(newEntity, newData);
 
         UmhaiInstanceEntity savedNew = instanceRepository.save(newEntity);
         logHistory(newUuid, "TRANSFER", "New instance after transfer");
         return mapper.toModel(savedNew);
+    }
+
+    /**
+     * A new UMHAI ID is issued whenever version/build changes, but the app's identity,
+     * publisher, packaging and certification metadata normally still applies — carry it
+     * forward so the superseding instance is not left blank. Per-release fields
+     * (release date, checksum) are NOT carried over because they describe a specific binary.
+     */
+    private void carryOverMetadata(UmhaiInstanceEntity from, UmhaiInstanceEntity to) {
+        to.setAppName(from.getAppName());
+        to.setPublisher(from.getPublisher());
+        to.setPublisherReference(from.getPublisherReference());
+        to.setSupportEmail(from.getSupportEmail());
+        to.setSupportUrl(from.getSupportUrl());
+        to.setPrivacyPolicyUrl(from.getPrivacyPolicyUrl());
+        to.setClassification(from.getClassification());
+        to.setPackageIdentifier(from.getPackageIdentifier());
+        to.setStoreUrl(from.getStoreUrl());
+        to.getCertifications().clear();
+        for (UmhaiCertificationEmbeddable c : from.getCertifications()) {
+            to.getCertifications().add(new UmhaiCertificationEmbeddable(
+                c.getType(), c.getStatus(), c.getIssued(), c.getExpires(), c.getValidator()));
+        }
     }
 
     private void logHistory(String instanceUuid, String eventType, String description) {

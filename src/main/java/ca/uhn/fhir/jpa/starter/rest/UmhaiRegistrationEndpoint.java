@@ -68,6 +68,7 @@ public class UmhaiRegistrationEndpoint {
             registrationData.put("buildNumber", application.get("build_number"));
             registrationData.put("isFirstLaunch", context != null ? context.get("is_first_launch") : true);
             registrationData.put("registeredBy", servletRequest.getRemoteAddr());
+            copyApplicationMetadata(application, registrationData);
 
             UmhaiInstance instance = registrationService.registerInstance(registrationData);
             Map<String, Object> responseData = new LinkedHashMap<>();
@@ -77,6 +78,7 @@ public class UmhaiRegistrationEndpoint {
             responseData.put("appId", instance.getAppId().getValue());
             responseData.put("status", instance.getStatus().getValue());
             responseData.put("registeredAt", instance.getRegisteredAt().getValueAsString());
+            responseData.put("metadata", metadataToMap(instance));
             responseData.put("message", "Registered successfully");
 
             response.setHeader("X-App-Instance-ID", instance.getInstanceUuid().getValue());
@@ -123,6 +125,7 @@ public class UmhaiRegistrationEndpoint {
             response.put("platform", instance.getPlatform().getValue());
             response.put("appId", instance.getAppId().getValue());
             response.put("status", instance.getStatus().getValue());
+            response.put("metadata", metadataToMap(instance));
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createErrorResponse(e.getMessage()));
@@ -140,6 +143,9 @@ public class UmhaiRegistrationEndpoint {
                 item.put("instanceUuid", instance.getInstanceUuid().getValue());
                 item.put("hardwareSerial", instance.getHardwareSerial().getValue());
                 item.put("appId", instance.getAppId().getValue());
+                if (instance.getAppName() != null) item.put("appName", instance.getAppName().getValue());
+                if (instance.getPublisher() != null) item.put("publisher", instance.getPublisher().getValue());
+                if (instance.getClassification() != null) item.put("classification", instance.getClassification().getValue());
                 instanceList.add(item);
             }
             Map<String, Object> response = new LinkedHashMap<>();
@@ -178,6 +184,101 @@ public class UmhaiRegistrationEndpoint {
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(createErrorResponse(e.getMessage()));
+        }
+    }
+
+    /**
+     * Copies the optional extended application metadata from the request's
+     * payload.application block (snake_case) into the service's registration map (camelCase).
+     * Only keys actually present in the request are copied, so absent fields are never overwritten.
+     */
+    @SuppressWarnings("unchecked")
+    private void copyApplicationMetadata(Map<String, Object> application, Map<String, Object> target) {
+        copyIfPresent(application, "app_name", target, "appName");
+        copyIfPresent(application, "publisher", target, "publisher");
+        copyIfPresent(application, "publisher_reference", target, "publisherReference");
+        copyIfPresent(application, "support_email", target, "supportEmail");
+        copyIfPresent(application, "support_url", target, "supportUrl");
+        copyIfPresent(application, "privacy_policy_url", target, "privacyPolicyUrl");
+        copyIfPresent(application, "classification", target, "classification");
+        copyIfPresent(application, "package_identifier", target, "packageIdentifier");
+        copyIfPresent(application, "store_url", target, "storeUrl");
+        copyIfPresent(application, "release_date", target, "releaseDate");
+
+        Object checksum = application.get("checksum");
+        if (checksum instanceof Map) {
+            Map<String, Object> c = (Map<String, Object>) checksum;
+            copyIfPresent(c, "algorithm", target, "checksumAlgorithm");
+            copyIfPresent(c, "value", target, "checksumValue");
+        }
+
+        Object certifications = application.get("certifications");
+        if (certifications instanceof List) {
+            List<Map<String, Object>> mapped = new ArrayList<>();
+            for (Object item : (List<Object>) certifications) {
+                if (item instanceof Map) {
+                    Map<String, Object> in = (Map<String, Object>) item;
+                    Map<String, Object> out = new LinkedHashMap<>();
+                    copyIfPresent(in, "type", out, "type");
+                    copyIfPresent(in, "status", out, "status");
+                    copyIfPresent(in, "issued", out, "issued");
+                    copyIfPresent(in, "expires", out, "expires");
+                    copyIfPresent(in, "validator", out, "validator");
+                    mapped.add(out);
+                } else {
+                    mapped.add(null); // rejected by service validation
+                }
+            }
+            target.put("certifications", mapped);
+        }
+    }
+
+    private void copyIfPresent(Map<String, Object> from, String fromKey, Map<String, Object> to, String toKey) {
+        if (from != null && from.containsKey(fromKey)) {
+            to.put(toKey, from.get(fromKey));
+        }
+    }
+
+    /** Renders the extended metadata of an instance for API responses (omits unset fields). */
+    private Map<String, Object> metadataToMap(UmhaiInstance instance) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        putIfSet(m, "appName", instance.getAppName());
+        putIfSet(m, "publisher", instance.getPublisher());
+        putIfSet(m, "publisherReference", instance.getPublisherReference());
+        putIfSet(m, "supportEmail", instance.getSupportEmail());
+        putIfSet(m, "supportUrl", instance.getSupportUrl());
+        putIfSet(m, "privacyPolicyUrl", instance.getPrivacyPolicyUrl());
+        putIfSet(m, "classification", instance.getClassification());
+        putIfSet(m, "packageIdentifier", instance.getPackageIdentifier());
+        putIfSet(m, "storeUrl", instance.getStoreUrl());
+        if (instance.getReleaseDate() != null) {
+            m.put("releaseDate", instance.getReleaseDate().getValueAsString());
+        }
+        if (instance.getChecksumAlgorithm() != null && instance.getChecksumValue() != null) {
+            Map<String, Object> checksum = new LinkedHashMap<>();
+            checksum.put("algorithm", instance.getChecksumAlgorithm().getValue());
+            checksum.put("value", instance.getChecksumValue().getValue());
+            m.put("checksum", checksum);
+        }
+        if (instance.hasCertification()) {
+            List<Map<String, Object>> certs = new ArrayList<>();
+            for (UmhaiInstance.CertificationComponent c : instance.getCertification()) {
+                Map<String, Object> cm = new LinkedHashMap<>();
+                putIfSet(cm, "type", c.getType());
+                putIfSet(cm, "status", c.getStatus());
+                if (c.getIssued() != null) cm.put("issued", c.getIssued().getValueAsString());
+                if (c.getExpires() != null) cm.put("expires", c.getExpires().getValueAsString());
+                putIfSet(cm, "validator", c.getValidator());
+                certs.add(cm);
+            }
+            m.put("certifications", certs);
+        }
+        return m;
+    }
+
+    private void putIfSet(Map<String, Object> map, String key, ca.uhn.fhir.model.primitive.StringDt value) {
+        if (value != null && value.getValue() != null) {
+            map.put(key, value.getValue());
         }
     }
 
